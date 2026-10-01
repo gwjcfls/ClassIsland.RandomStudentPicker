@@ -1,0 +1,58 @@
+<ci:ComponentBase x:TypeArguments="models:PickComponentSettings"
+                  x:Class="ClassIsland.RandomStudentPicker.Components.RandomPickerComponent"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:ci="http://classisland.tech/schemas/xaml/core"
+                  xmlns:local="clr-namespace:ClassIsland.RandomStudentPicker.Components"
+                  xmlns:models="clr-namespace:ClassIsland.RandomStudentPicker.Models"
+                  mc:Ignorable="d" d:DesignHeight="60" d:DesignWidth="320">
+    <ci:ComponentBase.Styles>
+        <Style Selector="Button.picker-button">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="10,3"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.picker-button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#3DFFFFFF"/>
+            <Setter Property="BorderBrush" Value="#88FFFFFF"/>
+        </Style>
+        <Style Selector="Button.picker-button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#55FFFFFF"/>
+        </Style>
+        <Style Selector="TextBlock.picker-result">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </ci:ComponentBase.Styles>
+
+    <StackPanel Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Spacing="{Binding Settings.Spacing}"
+                DataContext="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=local:RandomPickerComponent}}">
+        <Button Name="PickButton"
+                Classes="picker-button"
+                Click="PickButton_OnClick">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                <ci:LucideIcon Glyph="&#xE2C5;"
+                              FontSize="{Binding Settings.FontSize}"
+                              VerticalAlignment="Center"
+                              IsVisible="{Binding Settings.ShowIcon}"/>
+                <TextBlock Name="ButtonTextBlock"
+                           Text="{Binding Settings.ButtonText}"
+                           FontSize="{Binding Settings.FontSize}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </Button>
+        <TextBlock Name="ResultTextBlock"
+                   Classes="picker-result"
+                   FontSize="{Binding Settings.FontSize}"
+                   VerticalAlignment="Center"/>
+    </StackPanel>
+</ci:ComponentBase>

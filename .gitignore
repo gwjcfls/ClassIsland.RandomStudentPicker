@@ -1,0 +1,21 @@
+## Build output
+bin/
+obj/
+cipx/
+dist/
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+## OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+## Local ClassIsland layout backups
+docs/*.bak
+
