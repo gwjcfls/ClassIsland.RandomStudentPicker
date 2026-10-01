@@ -27,11 +27,18 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
     /// <summary>点击判定在按钮四周额外放宽的像素数，让按钮边缘也好点。</summary>
     private const double HitPadding = 3;
 
+    /// <summary>检查鼠标是否停在按钮上的间隔（毫秒）。</summary>
+    private const int FadeGuardIntervalMs = 120;
+
     private readonly RandomPickerService _picker;
     private readonly ILogger<RandomPickerComponent>? _logger;
 
+    private readonly IslandFadeGuard _fadeGuard = new();
+
     private IDisposable? _clickRegistration;
     private DispatcherTimer? _feedbackTimer;
+    private DispatcherTimer? _fadeGuardTimer;
+    private DateTime _lastPickTimeUtc = DateTime.MinValue;
     private int _appliedMode = -1;
 
     /// <summary>无参构造函数，供 Avalonia XAML 运行时加载器使用。</summary>
@@ -54,6 +61,7 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
         ApplyFontColor();
         RefreshResultText();
         ApplyClickMode();
+        ApplyFadeGuard();
 
         _picker.Settings.PropertyChanged += SettingsOnPropertyChanged;
     }
@@ -68,6 +76,9 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
         _feedbackTimer?.Stop();
         _feedbackTimer = null;
         _appliedMode = -1;
+        _fadeGuardTimer?.Stop();
+        _fadeGuardTimer = null;
+        _fadeGuard.Release();
 
         base.OnDetachedFromVisualTree(e);
     }
@@ -79,6 +90,9 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
             case nameof(PickerSettings.ClickCaptureMode):
                 ApplyClickMode();
                 break;
+            case nameof(PickerSettings.KeepIslandVisible):
+                ApplyFadeGuard();
+                break;
             case nameof(PickComponentSettings.UseCustomFontColor):
             case nameof(PickComponentSettings.FontColor):
                 ApplyFontColor();
@@ -88,6 +102,122 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
                 break;
         }
     }
+
+    #region 抽取期间保持主界面不淡化
+
+    /// <summary>
+    /// 按设置启停「保持主界面不淡化」的轮询。
+    /// </summary>
+    /// <remarks>
+    /// 点击抽取按钮之后鼠标必然停留在主界面上，ClassIsland 会因此把整个主界面行淡化到
+    /// 不透明度 0.05，连抽取结果提醒也一起看不清。这里在「鼠标停在抽取按钮上」或
+    /// 「刚抽完、提醒还在显示」时临时压住淡化效果。
+    /// </remarks>
+    private void ApplyFadeGuard()
+    {
+        _fadeGuardTimer?.Stop();
+
+        if (!_picker.Settings.KeepIslandVisible || !OperatingSystem.IsWindows())
+        {
+            _fadeGuard.Release();
+            return;
+        }
+
+        _fadeGuardTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(FadeGuardIntervalMs) };
+        _fadeGuardTimer.Tick -= FadeGuardTimerOnTick;
+        _fadeGuardTimer.Tick += FadeGuardTimerOnTick;
+        _fadeGuardTimer.Start();
+        UpdateFadeGuard();
+    }
+
+    private void FadeGuardTimerOnTick(object? sender, EventArgs e) => UpdateFadeGuard();
+
+    private void UpdateFadeGuard()
+    {
+        var onButton = IsCursorOnPickButton();
+        var inNotifyPeriod = IsWithinPickNotifyPeriod();
+
+        if (_picker.Settings.KeepIslandVisible && (onButton || inNotifyPeriod))
+        {
+            _fadeGuard.Suppress(this);
+        }
+        else
+        {
+            _fadeGuard.Release();
+        }
+
+        LogFadeGuardState(onButton, inNotifyPeriod);
+    }
+
+    private string? _lastFadeGuardSignature;
+
+    /// <summary>状态发生变化时记录一次日志，方便排查「什么时候没有压住淡化」。</summary>
+    private void LogFadeGuardState(bool onButton, bool inNotifyPeriod)
+    {
+        var suppressed = _fadeGuard.IsActive;
+        var signature = $"{onButton}|{inNotifyPeriod}|{suppressed}";
+        if (signature == _lastFadeGuardSignature)
+        {
+            return;
+        }
+
+        _lastFadeGuardSignature = signature;
+        _logger?.LogDebug(
+            "淡化守卫: 鼠标在按钮上={OnButton} 在提醒时段内={InNotify} 已压住淡化={Suppressed} | 按钮区={Area} 光标={Cursor} | {Line}",
+            onButton, inNotifyPeriod, suppressed,
+            GetScreenHitArea() is { } r ? $"({r.Left:F0},{r.Top:F0})-({r.Right:F0},{r.Bottom:F0})" : "<null>",
+            GetCursorPos(out var p) ? $"({p.X},{p.Y})" : "<失败>",
+            _fadeGuard.DescribeLine(this));
+    }
+
+    /// <summary>鼠标当前是否停在抽取按钮的点击区域上。</summary>
+    private bool IsCursorOnPickButton()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        try
+        {
+            if (!GetCursorPos(out var point))
+            {
+                return false;
+            }
+
+            return GetScreenHitArea()?.Contains(new Point(point.X, point.Y)) == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>当前是否处于「刚抽完、提醒正在显示」的时间窗内。</summary>
+    private bool IsWithinPickNotifyPeriod()
+    {
+        if (_lastPickTimeUtc == DateTime.MinValue)
+        {
+            return false;
+        }
+
+        // 提醒显示期间保持不淡化，另外多留 1 秒余量，避免提醒刚消失界面就整行淡掉。
+        var seconds = Math.Clamp(_picker.Settings.NotifyDurationSeconds, 2, 60) + 1;
+        return DateTime.UtcNow - _lastPickTimeUtc < TimeSpan.FromSeconds(seconds);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out NativePoint point);
+
+    #endregion
 
     /// <summary>
     /// 根据插件设置切换「捕捉主界面点击」的方式。
@@ -231,6 +361,11 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
         }
 
         RefreshResultText();
+
+        // 记下抽取时间：提醒显示期间要保持主界面不淡化，否则提醒会被淡化得看不清。
+        _lastPickTimeUtc = DateTime.UtcNow;
+        UpdateFadeGuard();
+
         _logger?.LogInformation("随机抽取到同学：{Name}", name);
     }
 

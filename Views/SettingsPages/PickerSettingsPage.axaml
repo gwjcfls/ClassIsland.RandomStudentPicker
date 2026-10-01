@@ -87,6 +87,14 @@
                 </controls1:SettingsExpander.Footer>
             </controls1:SettingsExpander>
 
+            <controls1:SettingsExpander IconSource="{ci:FluentIconSource &#xE5C3;}"
+                                        Header="抽取时保持主界面不淡化"
+                                        Description="ClassIsland 默认会在鼠标移入主界面时把整行淡化到几乎透明，而点击抽取按钮后鼠标必定还停在主界面上，抽取结果提醒会因此看不清。开启后，鼠标停在抽取按钮上、以及抽取后提醒显示的这段时间里，插件会临时让主界面保持正常不透明度；移开鼠标即恢复原本的淡化行为。本项不会修改 ClassIsland 自身的设置。">
+                <controls1:SettingsExpander.Footer>
+                    <ToggleSwitch IsChecked="{Binding Settings.KeepIslandVisible, Mode=TwoWay}" />
+                </controls1:SettingsExpander.Footer>
+            </controls1:SettingsExpander>
+
             <controls1:SettingsExpander IconSource="{ci:FluentIconSource &#xE7C1;}"
                                         Header="主界面点击方式"
                                         Description="ClassIsland 主界面默认点击穿透，组件里的按钮收不到鼠标点击。插件用低级鼠标钩子捕捉落在组件上的点击，并且会「吃掉」这一次点击（不会同时点到主界面后面的窗口）。选择【关闭】时组件只用于显示结果，抽取请用上面的「试抽一次」。">

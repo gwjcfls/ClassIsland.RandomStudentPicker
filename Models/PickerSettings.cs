@@ -16,6 +16,7 @@ public class PickerSettings : INotifyPropertyChanged
     private string _emptyRosterHint = "请先在插件设置中添加备选同学名单";
     private int _notifyDurationSeconds = 6;
     private int _clickCaptureMode = 1;
+    private bool _keepIslandVisible = true;
 
     /// <summary>首次使用时的示例名单，方便用户直接看到效果。</summary>
     public static readonly string[] DefaultStudents =
@@ -91,6 +92,20 @@ public class PickerSettings : INotifyPropertyChanged
     /// <summary>名单人数（只读计算属性，不写入配置文件）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public int StudentCount => Students?.Count ?? 0;
+
+    /// <summary>
+    /// 鼠标停在抽取按钮上、以及抽取后提醒显示的这段时间里，是否让主界面保持不淡化。
+    /// </summary>
+    /// <remarks>
+    /// ClassIsland 默认会在鼠标移入主界面时把整行淡化到几乎透明（不透明度 0.05），
+    /// 而点击抽取按钮之后鼠标必定还在主界面上，会导致抽取结果提醒看不清。
+    /// 开启本项后，插件会在这段时间里临时压住淡化效果，不改动 ClassIsland 的任何设置。
+    /// </remarks>
+    public bool KeepIslandVisible
+    {
+        get => _keepIslandVisible;
+        set => SetField(ref _keepIslandVisible, value);
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
