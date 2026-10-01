@@ -63,7 +63,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          bodyFile: ./cipx/release-body.md
+          body_path: ./cipx/release-body.md
           files: ./cipx/*.cipx
           draft: false
           prerelease: false
