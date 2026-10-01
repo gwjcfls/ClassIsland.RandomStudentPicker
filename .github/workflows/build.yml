@@ -30,13 +30,26 @@ jobs:
         run: dotnet build ClassIsland.RandomStudentPicker.csproj -c Release --no-restore
 
       - name: Pack plugin
-        run: dotnet publish ClassIsland.RandomStudentPicker.csproj -c Release -p:CreateCipx=true
+        run: dotnet publish ClassIsland.RandomStudentPicker.csproj -c Release -p:CreateCipx=true -p:PowershellBinaryName=pwsh
 
-      - name: Show package info
+      - name: Generate release body with MD5
         shell: pwsh
         run: |
-          Get-ChildItem ./cipx
-          Get-Content ./cipx/checksums.md
+          $cipx = Get-ChildItem ./cipx/*.cipx | Select-Object -First 1
+          if ($null -eq $cipx) { throw "No .cipx package was produced." }
+          $md5 = (Get-FileHash $cipx -Algorithm MD5).Hash
+          $name = $cipx.Name
+          $body = @(
+            "插件包校验信息"
+            ""
+            "| 文件名 | 大小 | MD5 |"
+            "| --- | --- | --- |"
+            "| ``$name`` | $($cipx.Length) 字节 | ``$md5`` |"
+            ""
+            "<!-- CLASSISLAND_PKG_MD5 {""$name"": ""$md5""} -->"
+          ) -join "`n"
+          Set-Content -Path ./cipx/release-body.md -Value $body -Encoding utf8NoBOM
+          Write-Host $body
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -50,7 +63,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          bodyFile: ./cipx/checksums.md
+          bodyFile: ./cipx/release-body.md
           files: ./cipx/*.cipx
           draft: false
           prerelease: false
