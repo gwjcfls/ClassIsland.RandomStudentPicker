@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using ClassIsland.Core;
 using ClassIsland.Core.Abstractions;
+using ClassIsland.Core.Abstractions.Services;
 using ClassIsland.Core.Attributes;
 using ClassIsland.Core.Extensions.Registry;
 using ClassIsland.RandomStudentPicker.Components;
@@ -42,7 +43,8 @@ public class Plugin : PluginBase
         services.AddSingleton(sp => new RandomPickerService(
             sp.GetRequiredService<PickerSettings>(),
             configPath,
-            sp.GetService<ILogger<RandomPickerService>>()));
+            sp.GetService<ILogger<RandomPickerService>>(),
+            sp.GetService<IComponentsService>()));
 
         // 抽取结果提醒
         services.AddNotificationProvider<PickerNotificationProvider>();

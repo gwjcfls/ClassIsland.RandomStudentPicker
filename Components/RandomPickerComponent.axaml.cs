@@ -64,12 +64,14 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
         ApplyFadeGuard();
 
         _picker.Settings.PropertyChanged += SettingsOnPropertyChanged;
+        _picker.LastPickedCleared += PickerOnLastPickedCleared;
     }
 
     /// <inheritdoc />
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _picker.Settings.PropertyChanged -= SettingsOnPropertyChanged;
+        _picker.LastPickedCleared -= PickerOnLastPickedCleared;
 
         _clickRegistration?.Dispose();
         _clickRegistration = null;
@@ -101,6 +103,18 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
                 RefreshResultText();
                 break;
         }
+    }
+
+    /// <summary>上一次抽取结果被清空（例如切换了组件配置）时，清掉组件上显示的名字。</summary>
+    private void PickerOnLastPickedCleared(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => RefreshResultText(), DispatcherPriority.Input);
+            return;
+        }
+
+        RefreshResultText();
     }
 
     #region 抽取期间保持主界面不淡化
@@ -154,6 +168,11 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
     /// <summary>状态发生变化时记录一次日志，方便排查「什么时候没有压住淡化」。</summary>
     private void LogFadeGuardState(bool onButton, bool inNotifyPeriod)
     {
+        if (_logger?.IsEnabled(LogLevel.Debug) != true)
+        {
+            return;
+        }
+
         var suppressed = _fadeGuard.IsActive;
         var signature = $"{onButton}|{inNotifyPeriod}|{suppressed}";
         if (signature == _lastFadeGuardSignature)
@@ -162,7 +181,7 @@ public partial class RandomPickerComponent : ComponentBase<PickComponentSettings
         }
 
         _lastFadeGuardSignature = signature;
-        _logger?.LogDebug(
+        _logger.LogDebug(
             "淡化守卫: 鼠标在按钮上={OnButton} 在提醒时段内={InNotify} 已压住淡化={Suppressed} | 按钮区={Area} 光标={Cursor} | {Line}",
             onButton, inNotifyPeriod, suppressed,
             GetScreenHitArea() is { } r ? $"({r.Left:F0},{r.Top:F0})-({r.Right:F0},{r.Bottom:F0})" : "<null>",

@@ -15,6 +15,8 @@
 - 👀 **抽取时保持主界面不淡化**：ClassIsland 默认会在鼠标移入主界面时把整行淡化到不透明度 0.05，
   而点击抽取按钮之后鼠标必定还停在主界面上，抽取结果提醒会因此几乎看不见。开启后，鼠标停在抽取按钮上、
   以及抽取后提醒显示的这段时间里，插件会临时让主界面保持正常不透明度；移开鼠标即恢复原本的淡化行为。
+- 🪟 **不弹「顶层效果窗口」**：抽取提醒关闭了 ClassIsland 的提醒涟漪特效，不会额外弹出那一层置顶窗口。
+- 🔄 **切换组件配置自动清空结果**：切换「组件配置」时清掉上一次抽到的同学，新配置的主界面上不会残留旧结果。
 - 🎨 **组件级设置**：按钮文字、字体大小、自定义颜色、是否显示图标、是否在组件上显示结果。
 - 🧹 **干净显示**：没抽过人的时候组件上只有按钮，不会出现「点我抽一位同学」之类的占位提示。
 
@@ -90,6 +92,23 @@ ClassIsland 的 `MainWindowLine` 在鼠标移入主界面区域时会把自己�
   「视觉树祖先 + `Settings` 属性的返回类型是 `MainWindowLineSettings`」识别的；识别不到时静默放弃，
   不影响抽取功能本身。
 - 可以在【应用设置 → 随机抽取同学 → 抽取时保持主界面不淡化】里关闭。
+
+## 关于「顶层效果窗口」与「切换组件配置清空结果」
+
+**不创建「顶层效果窗口」**：ClassIsland 播放遮罩提醒时，如果启用了提醒特效，会调用
+`TopmostEffectWindow.PlayEffect(...)` 播放涟漪特效，而这个特效渲染在一个独立的置顶窗口里
+（窗口标题就是「顶层效果窗口」）。本插件的提醒请求里显式关掉了提醒特效
+（`RequestNotificationSettings.IsNotificationEffectEnabled = false`），遮罩提醒照常在主界面显示，
+只是不再多弹那一层窗口。
+
+> 注意 `NotificationWorkerService` 合并提醒设置时是「取第一个 `IsSettingsEnabled == true` 的设置
+> 对象整体生效」，而不是逐字段叠加。所以清单里其余几项（提醒开关、语音、音效、置顶）需要显式写出，
+> 否则会被 `NotificationSettings` 的默认值覆盖（例如语音默认是关闭的）。
+
+**切换组件配置清空结果**：切换「组件配置」等价于 `Settings.CurrentComponentConfig` 变化，
+`ComponentsService` 随即替换 `CurrentComponents`。插件订阅 `IComponentsService`（在 `ClassIsland.Core`
+中公开）的 `PropertyChanged`，一旦发现 `CurrentComponents` 变更就清空上一次抽到的同学并刷新组件显示，
+避免新配置的主界面上残留旧结果。
 
 ## 截图
 

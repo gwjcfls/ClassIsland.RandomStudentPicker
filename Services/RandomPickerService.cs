@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using ClassIsland.Core.Abstractions.Services;
 using ClassIsland.RandomStudentPicker.Models;
 using ClassIsland.Shared.Helpers;
 using Microsoft.Extensions.Logging;
@@ -31,7 +33,14 @@ public class RandomPickerService
     /// <summary>抽到同学时触发。</summary>
     public event EventHandler<PickedEventArgs>? Picked;
 
-    public RandomPickerService(PickerSettings settings, string configPath, ILogger<RandomPickerService>? logger = null)
+    /// <summary>上一次的抽取结果被清空时触发（例如切换了组件配置）。</summary>
+    public event EventHandler? LastPickedCleared;
+
+    public RandomPickerService(
+        PickerSettings settings,
+        string configPath,
+        ILogger<RandomPickerService>? logger = null,
+        IComponentsService? componentsService = null)
     {
         Settings = settings;
         _configPath = configPath;
@@ -39,6 +48,37 @@ public class RandomPickerService
 
         Settings.PropertyChanged += (_, _) => Save();
         Settings.Students.CollectionChanged += (_, _) => Save();
+
+        // 切换「组件配置」（应用设置 → 组件 → 组件配置）时清空上一次的抽取结果，
+        // 否则新配置的主界面上会继续显示上一次抽到的同学。
+        // ComponentsService 在 Settings.CurrentComponentConfig 变化时会替换 CurrentComponents。
+        if (componentsService != null)
+        {
+            componentsService.PropertyChanged += ComponentsServiceOnPropertyChanged;
+        }
+    }
+
+    private void ComponentsServiceOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(IComponentsService.CurrentComponents))
+        {
+            return;
+        }
+
+        _logger?.LogInformation("检测到组件配置切换，已清空上一次的抽取结果。");
+        ClearLastPicked();
+    }
+
+    /// <summary>清空上一次抽到的同学，并通知界面刷新。</summary>
+    public void ClearLastPicked()
+    {
+        if (string.IsNullOrEmpty(LastPicked))
+        {
+            return;
+        }
+
+        LastPicked = "";
+        LastPickedCleared?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>把当前的设置写回磁盘。</summary>
